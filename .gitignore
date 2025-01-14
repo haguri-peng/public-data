@@ -36,8 +36,8 @@ out/
 ### VS Code ###
 .vscode/
 
-### User properties ###
-src/main/resources/myinfo.properties
-
 ### Logs ###
 logs
+
+### Certificate ###
+/src/main/resources/keystore.p12
