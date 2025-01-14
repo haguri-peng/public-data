@@ -27,7 +27,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web-services'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'io.netty:netty-resolver-dns-native-macos:4.1.68.Final:osx-aarch_64'
-    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+//    implementation 'com.googlecode.json-simple:json-simple:1.1.1'
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.10.1'
 //    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
     testImplementation 'org.projectlombok:lombok:1.18.28'
