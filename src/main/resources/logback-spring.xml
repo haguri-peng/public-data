@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <!-- 로그 패턴에 색상 적용 %clr(pattern){color} -->
-    <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter" />
+    <!-- log path 설정 -->
+    <property name="LOGS_PATH" value="logs"/>
 
-    <!-- log 기록 절대 위치 설정 -->
-    <property name="LOGS_PATH" value="logs" />
     <!-- Pattern -->
     <property name="CONSOLE_LOG_PATTERN"
-              value="[%d{yyyy-MM-dd HH:mm:ss}:%-3relative]  %clr(%-5level) %clr(${PID:-}){magenta} %clr(---){faint} %clr([%15.15thread]){faint} %clr(%-40.40logger{36}){cyan} %clr(:){faint} %msg%n" />
+              value="[%d{yyyy-MM-dd HH:mm:ss}:%-8.8relative] %green(%-5level) %magenta(${PID:-}) --- [%15.15thread] %cyan(%-50.50logger{50}) : %msg%n"/>
     <property name="FILE_LOG_PATTERN"
-              value="[%d{yyyy-MM-dd HH:mm:ss}:%-3relative] %-5level ${PID:-} --- [%15.15thread] %-40.40logger{36} : %msg%n" />
+              value="[%d{yyyy-MM-dd HH:mm:ss}:%-8.8relative] %-5level ${PID:-} --- [%15.15thread] %-50.50logger{50} : %msg%n"/>
 
     <!-- 콘솔(STDOUT) -->
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
@@ -33,16 +31,16 @@
             <maxHistory>180</maxHistory>
             <totalSizeCap>3GB</totalSizeCap>
         </rollingPolicy>
+        <!-- 파일은 'INFO' level로 설정 -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
     </appender>
 
-    <!-- log 레벨 설정 (logging.level.root=debug)-->
-    <root level="debug">
-        <!-- 참조할 appender 설정 - STDOUT -->
-        <appender-ref ref="STDOUT" />
+    <!-- log 레벨 설정 -->
+    <root level="DEBUG">
+        <!-- 참조할 appender 설정 -->
+        <appender-ref ref="FILE"/>
+        <appender-ref ref="STDOUT"/>
     </root>
-
-    <!-- log 레벨 설정 (org.springframework.web=debug)-->
-    <logger name="org.springframework.web" level="debug">
-        <appender-ref ref="FILE" />
-    </logger>
 </configuration>
