@@ -1,15 +1,16 @@
 package com.haguri.publicdata.bus.service;
 
+import com.google.gson.JsonArray;
 import com.haguri.publicdata.util.BusUtil;
 import com.haguri.publicdata.util.MyInfoUtil;
-import org.json.simple.JSONArray;
-import org.json.simple.parser.ParseException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Service
 public class SuburbsBusService {
 
@@ -23,6 +24,7 @@ public class SuburbsBusService {
     }
 
     public Mono<ResponseEntity<String>> getSuburbsBusCityCode() {
+        log.info("====================[ getSuburbsBusCityCode ]====================");
         return suburbsBusWebClient
                 .get()
                 .uri(uriBuilder ->
@@ -37,6 +39,7 @@ public class SuburbsBusService {
     }
 
     public Mono<ResponseEntity<String>> getSuburbsBusGrad() {
+        log.info("====================[ getSuburbsBusGrad ]====================");
         return suburbsBusWebClient
                 .get()
                 .uri(uriBuilder ->
@@ -50,17 +53,19 @@ public class SuburbsBusService {
                 .toEntity(String.class);
     }
 
-    public ResponseEntity<JSONArray> getSuburbsBusTrminl() throws ParseException {
+    public ResponseEntity<JsonArray> getSuburbsBusTrminl() {
+        log.info("====================[ getSuburbsBusTrminl ]====================");
         return BusUtil.getBusTrminl(suburbsBusWebClient, BusUtil.BusType.Suburbs, myInfoUtil.getPropertyValue("MyInfo.serviceKey"));
     }
 
-    public ResponseEntity<JSONArray> getExpBusInfo(
+    public ResponseEntity<JsonArray> getSuburbsBusInfo(
             int pageNo,
             String depTerminalId,
             String arrTerminalId,
             String depPlandTime,
             String busGradeId
-    ) throws ParseException {
+    ) {
+        log.info("====================[ getSuburbsBusInfo ]====================");
         return BusUtil.getBusInfo(
                 suburbsBusWebClient,
                 BusUtil.BusType.Suburbs,
@@ -69,8 +74,7 @@ public class SuburbsBusService {
                 arrTerminalId,
                 depPlandTime,
                 busGradeId,
-                myInfoUtil.getPropertyValue("MyInfo.serviceKey")
-        );
+                myInfoUtil.getPropertyValue("MyInfo.serviceKey"));
     }
 
 }

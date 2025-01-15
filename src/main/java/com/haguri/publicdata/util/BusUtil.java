@@ -1,28 +1,17 @@
 package com.haguri.publicdata.util;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 public class BusUtil {
-
-    /**
-     * Bus Type
-     * 고속버스(Exp), 시외버스(Suburbs)
-     */
-    public enum BusType {
-        Exp, // 고속버스
-        Suburbs // 시외버스
-    }
 
     /**
      * BusType에 따라 터미널 정보 전체를 조회한다.
@@ -31,63 +20,54 @@ public class BusUtil {
      * @param busType   BusType
      * @return ResponseEntity
      */
-    @SuppressWarnings("rawtypes")
-    public static ResponseEntity<JSONArray> getBusTrminl(WebClient webClient, BusType busType, String serviceKey) throws ParseException {
+    public static ResponseEntity<JsonArray> getBusTrminl(
+            WebClient webClient,
+            BusType busType,
+            String serviceKey) {
+
         // 먼저, HEADER 정보를 보고 진행 여부를 확인
         Mono<String> resMono = fetchBusTrminl(webClient, busType, 1, 10, serviceKey);
         String strRes = resMono.block();
 
-        //System.out.println(strRes);
+        log.info("====================[ BusUtil.getBusTrminl ]====================");
+        log.info("busType : {}", busType);
 
-        JSONParser jsonParser = new JSONParser();
-        Object obj = jsonParser.parse(strRes);
-        JSONObject jsonObj = (JSONObject) obj;
-
-        JSONObject jsonRes = (JSONObject) jsonObj.get("response");
-        JSONObject jsonHeader = (JSONObject) jsonRes.get("header"); // header
-        JSONObject jsonBody = (JSONObject) jsonRes.get("body"); // body
-
-        //System.out.println(jsonHeader);
+        Gson gson = new Gson();
+        JsonObject jsonObject = gson.fromJson(strRes, JsonObject.class);
+        JsonObject jsonRes = jsonObject.get("response").getAsJsonObject();
+        JsonObject jsonHeader = jsonRes.get("header").getAsJsonObject(); // header
+        JsonObject jsonBody = jsonRes.get("body").getAsJsonObject(); // body
 
         int totCnt; // 전체 결과 수
         int pageNo; // 페이지 번호
         int numOfRows; // 페이지 당 요청 숫자
         int totPageNo; // 총 페이지 수
-        List<Map> itemLst = new ArrayList<>(); // 출력할 전체 데이터
+        JsonArray itemLst = new JsonArray(); // 출력할 데이터
 
         // resultCode 가 00 이면 정상
-        if ("00".equals(jsonHeader.get("resultCode").toString())) {
-            totCnt = Integer.parseInt(jsonBody.get("totalCount").toString());
-            pageNo = Integer.parseInt(jsonBody.get("pageNo").toString());
-            numOfRows = Integer.parseInt(jsonBody.get("numOfRows").toString());
+        if ("00".equals(jsonHeader.get("resultCode").getAsString())) {
+            totCnt = jsonBody.get("totalCount").getAsInt();
+            pageNo = jsonBody.get("pageNo").getAsInt();
+            numOfRows = jsonBody.get("numOfRows").getAsInt();
             // 호출 횟수를 줄이기 위해 기본값(10)에서 100으로 설정
             if (numOfRows == 10) {
                 numOfRows = 100;
             }
             totPageNo = (int) Math.ceil((double) totCnt / numOfRows);
 
-            //System.out.println("totCnt >> " + totCnt);
-            //System.out.println("pageNo >> " + pageNo);
-            //System.out.println("numOfRows >> " + numOfRows);
-            //System.out.println("totPageNo >> " + totPageNo);
-
             while (pageNo <= totPageNo) {
                 String resFetch = fetchBusTrminl(webClient, busType, pageNo++, numOfRows, serviceKey).block();
 
-                JSONParser parser = new JSONParser();
-                Object objFetch = parser.parse(resFetch);
-                JSONObject jsonFetch = (JSONObject) objFetch;
+                JsonObject jsonFetch = gson.fromJson(resFetch, JsonObject.class);
+                JsonObject jsonResFetch = jsonFetch.get("response").getAsJsonObject();
+                JsonArray jsonArray = jsonResFetch
+                        .get("body").getAsJsonObject()
+                        .get("items").getAsJsonObject()
+                        .get("item").getAsJsonArray();
 
-                JSONObject jsonResFetch = (JSONObject) jsonFetch.get("response");
-                JSONArray jsonArrItem = (JSONArray)
-                        ((JSONObject) ((JSONObject) jsonResFetch.get("body")).get("items")).get("item");
-                List<Map> dataLst = JsonUtil.getListMapFromJSONArray(jsonArrItem);
-
-                //System.out.println(dataLst);
-
-                itemLst.addAll(dataLst);
+                itemLst.addAll(jsonArray);
             }
-            return ResponseEntity.ok(JsonUtil.getJSONArrayFromList(itemLst));
+            return ResponseEntity.ok(itemLst);
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -109,6 +89,7 @@ public class BusUtil {
             int numOfRows,
             String serviceKey
     ) {
+
         String path;
         if (busType == BusType.Exp) {
             path = "/getExpBusTrminlList";
@@ -145,8 +126,7 @@ public class BusUtil {
      * @param busGradeId    버스등급
      * @return ResponseEntity
      */
-    @SuppressWarnings("rawtypes")
-    public static ResponseEntity<JSONArray> getBusInfo(
+    public static ResponseEntity<JsonArray> getBusInfo(
             WebClient webClient,
             BusType busType,
             int pageNo,
@@ -155,12 +135,11 @@ public class BusUtil {
             String depPlandTime,
             String busGradeId,
             String serviceKey
-    ) throws ParseException {
-        //System.out.println("pageNo >> " + pageNo);
-        //System.out.println("depTerminalId >> " + depTerminalId);
-        //System.out.println("arrTerminalId >> " + arrTerminalId);
-        //System.out.println("depPlandTime >> " + depPlandTime);
-        //System.out.println("busGradeId >> " + busGradeId);
+    ) {
+
+        log.info("====================[ BusUtil.getBusInfo ]====================");
+        log.info("pageNo : {}, busType : {}, busGradeId : {}", pageNo, busType, busGradeId);
+        log.info("depPlandTime : {}, depTerminalId : {}, arrTerminalId : {}", depPlandTime, depTerminalId, arrTerminalId);
 
         // 먼저, HEADER 정보를 보고 진행 여부를 확인
         Mono<String> resMono = fetchBusInfo(
@@ -175,28 +154,19 @@ public class BusUtil {
         );
         String strRes = resMono.block();
 
-        //System.out.println(strRes);
-
-        JSONParser jsonParser = new JSONParser();
-        Object obj = jsonParser.parse(strRes);
-        JSONObject jsonObj = (JSONObject) obj;
-
-        JSONObject jsonRes = (JSONObject) jsonObj.get("response");
-        JSONObject jsonHeader = (JSONObject) jsonRes.get("header"); // header
-        JSONObject jsonBody = (JSONObject) jsonRes.get("body"); // body
-
-        //System.out.println(jsonHeader);
+        Gson gson = new Gson();
+        JsonObject jsonObject = gson.fromJson(strRes, JsonObject.class);
+        JsonObject jsonRes = jsonObject.get("response").getAsJsonObject();
+        JsonObject jsonHeader = jsonRes.get("header").getAsJsonObject(); // header
+        JsonObject jsonBody = jsonRes.get("body").getAsJsonObject(); // body
 
         int totCnt; // 전체 결과 수
         int totPageNo; // 총 페이지 수
 
         // resultCode 가 00 이면 정상
-        if ("00".equals(jsonHeader.get("resultCode").toString())) {
-            totCnt = Integer.parseInt(jsonBody.get("totalCount").toString());
+        if ("00".equals(jsonHeader.get("resultCode").getAsString())) {
+            totCnt = jsonBody.get("totalCount").getAsInt();
             totPageNo = (int) Math.ceil((double) totCnt / 100);
-
-            //System.out.println("totCnt >> " + totCnt);
-            //System.out.println("totPageNo >> " + totPageNo);
 
             // 총 페이지 수보다 크면 fetch 하지 않음
             if (pageNo > totPageNo) {
@@ -214,18 +184,14 @@ public class BusUtil {
                     serviceKey
             ).block();
 
-            JSONParser parser = new JSONParser();
-            Object objFetch = parser.parse(resFetch);
-            JSONObject jsonFetch = (JSONObject) objFetch;
+            JsonObject jsonFetch = gson.fromJson(resFetch, JsonObject.class);
+            JsonObject jsonResFetch = jsonFetch.get("response").getAsJsonObject();
+            JsonArray jsonArray = jsonResFetch
+                    .get("body").getAsJsonObject()
+                    .get("items").getAsJsonObject()
+                    .get("item").getAsJsonArray();
 
-            JSONObject jsonResFetch = (JSONObject) jsonFetch.get("response");
-            JSONArray jsonArrItem = (JSONArray)
-                    ((JSONObject) ((JSONObject) jsonResFetch.get("body")).get("items")).get("item");
-            List<Map> dataLst = JsonUtil.getListMapFromJSONArray(jsonArrItem);
-
-            //System.out.println(dataLst);
-
-            return ResponseEntity.ok(JsonUtil.getJSONArrayFromList(dataLst));
+            return ResponseEntity.ok(jsonArray);
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -253,6 +219,7 @@ public class BusUtil {
             String busGradeId,
             String serviceKey
     ) {
+
         String path;
         if (busType == BusType.Exp) {
             path = "/getStrtpntAlocFndExpbusInfo";
@@ -279,6 +246,15 @@ public class BusUtil {
                 )
                 .retrieve()
                 .bodyToMono(String.class);
+    }
+
+    /**
+     * Bus Type
+     * 고속버스(Exp), 시외버스(Suburbs)
+     */
+    public enum BusType {
+        Exp, // 고속버스
+        Suburbs // 시외버스
     }
 
 }

@@ -1,12 +1,11 @@
 package com.haguri.publicdata.stanReginCd.service;
 
-import com.haguri.publicdata.util.JsonUtil;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.haguri.publicdata.util.MyInfoUtil;
 import com.haguri.publicdata.util.MyUtil;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -15,10 +14,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class StanReginCdService {
 
@@ -32,7 +30,8 @@ public class StanReginCdService {
             WebClient stanReginCdWebClient,
             WebClient stanReginCd2ModelInfoWebClient,
             WebClient stanReginCd2WebClient,
-            MyInfoUtil myInfoUtil) {
+            MyInfoUtil myInfoUtil
+    ) {
         this.stanReginCdWebClient = stanReginCdWebClient;
         this.stanReginCd2ModelInfoWebClient = stanReginCd2ModelInfoWebClient;
         this.stanReginCd2WebClient = stanReginCd2WebClient;
@@ -40,70 +39,49 @@ public class StanReginCdService {
     }
 
     @SuppressWarnings("rawtypes")
-    public void getStanReginCdList() throws ParseException, IOException {
+    public void getStanReginCdList() throws IOException {
+        log.info("====================[ getStanReginCdList ]====================");
+
         // 먼저, HEADER 정보를 보고 진행 여부를 확인
         String strRes = fetchStanReginCd(1, 10);
 
-        //System.out.println(strRes);
-
-        JSONParser jsonParser = new JSONParser();
-        Object obj = jsonParser.parse(strRes);
-        JSONObject jsonObj = (JSONObject) obj;
-
-        JSONArray jsonArrStanReginCd = (JSONArray) jsonObj.get("StanReginCd");
-        JSONObject jsonHead = (JSONObject) jsonArrStanReginCd.get(0); // head
-        List<Map> headLst = JsonUtil.getListMapFromJSONArray((JSONArray) jsonHead.get("head"));
-
-        //System.out.println(headLst);
+        Gson gson = new Gson();
+        JsonObject jsonRes = gson.fromJson(strRes, JsonObject.class);
+        JsonObject jsonHead = jsonRes.get("StanReginCd").getAsJsonArray().get(0).getAsJsonObject();
+        JsonArray headLst = jsonHead.get("head").getAsJsonArray();
 
         int totCnt; // 전체 결과 수
         int pageNo; // 페이지 번호
         int numOfRows; // 페이지 당 요청 숫자
         int totPageNo; // 총 페이지 수
-        List<Map> allDataLst = new ArrayList<>(); // 출력할 전체 데이터
+        JsonArray allDataLst = new JsonArray(); // 출력할 데이터
 
         if (!headLst.isEmpty()) {
-            Map resultMap = (Map) headLst.get(2).get("RESULT");
-            if ("INFO-0".equals(resultMap.get("resultCode").toString())) {
+            JsonObject jsonResult = headLst.get(2).getAsJsonObject().get("RESULT").getAsJsonObject();
+            if ("INFO-0".equals(jsonResult.get("resultCode").getAsString())) {
                 // INFO-0: 정상
-                totCnt = (int) headLst.get(0).get("totalCount");
-                pageNo = Integer.parseInt(headLst.get(1).get("pageNo").toString());
-                numOfRows = Integer.parseInt(headLst.get(1).get("numOfRows").toString());
+                totCnt = headLst.get(0).getAsJsonObject().get("totalCount").getAsInt();
+                pageNo = headLst.get(1).getAsJsonObject().get("pageNo").getAsInt();
+                numOfRows = headLst.get(1).getAsJsonObject().get("numOfRows").getAsInt();
                 // 호출 횟수를 줄이기 위해 기본값(10)에서 1000으로 설정
                 if (numOfRows == 10) {
                     numOfRows = 1000;
                 }
                 totPageNo = (int) Math.ceil((double) totCnt / numOfRows);
 
-                //System.out.println("totCnt >> " + totCnt);
-                //System.out.println("pageNo >> " + pageNo);
-                //System.out.println("numOfRows >> " + numOfRows);
-                //System.out.println("totPageNo >> " + totPageNo);
-
                 while (pageNo <= totPageNo) {
                     String resFetch = fetchStanReginCd(pageNo++, numOfRows);
 
-                    JSONParser parser = new JSONParser();
-                    Object object = parser.parse(resFetch);
-                    JSONObject jsonObject = (JSONObject) object;
-
-                    JSONArray jsonArr = (JSONArray) jsonObject.get("StanReginCd");
-                    JSONObject jsonRow = (JSONObject) jsonArr.get(1); // row
-                    List<Map> dataLst = JsonUtil.getListMapFromJSONArray((JSONArray) jsonRow.get("row"));
-
-                    //System.out.println(dataLst);
+                    JsonObject jsonResFetch = gson.fromJson(resFetch, JsonObject.class);
+                    JsonObject jsonRow = jsonResFetch.get("StanReginCd").getAsJsonArray().get(1).getAsJsonObject();
+                    JsonArray dataLst = jsonRow.get("row").getAsJsonArray();
 
                     allDataLst.addAll(dataLst);
                 }
 
-                //System.out.println(allDataLst);
-
-                FileOutputStream out = null;
-                try {
-                    out = new FileOutputStream(".files/makeFiles/stanReginCd.csv");
-
+                try (FileOutputStream out = new FileOutputStream(".files/makeFiles/stanReginCd.csv")) {
                     for (int i = 0; i < allDataLst.size(); i++) {
-                        Map map = allDataLst.get(i);
+                        Map map = gson.fromJson(allDataLst.get(i), Map.class);
 
                         // 첫번째 Row에 Header 정보를 세팅
                         if (i == 0) {
@@ -114,9 +92,6 @@ public class StanReginCdService {
                     }
                 } catch (FileNotFoundException e) {
                     throw new RuntimeException(e);
-                } finally {
-                    assert out != null;
-                    out.close();
                 }
             }
         }
@@ -147,7 +122,9 @@ public class StanReginCdService {
     }
 
     @SuppressWarnings("rawtypes")
-    public ResponseEntity<JSONArray> getStanReginCd2List() throws ParseException {
+    public ResponseEntity<JsonArray> getStanReginCd2List() {
+        log.info("====================[ getStanReginCd2List ]====================");
+
         String lstUpdDate = "";
         String lstPath = "";
 
@@ -158,8 +135,6 @@ public class StanReginCdService {
             String[] arrSummary = summary.split("_");
             String updDate = arrSummary[arrSummary.length - 1];
 
-            //System.out.println("updDate >> " + updDate);
-
             Integer dateCmpVal = MyUtil.dateCompareTo(lstUpdDate, updDate);
             if (dateCmpVal != null && dateCmpVal < 0) {
                 lstUpdDate = updDate;
@@ -167,46 +142,32 @@ public class StanReginCdService {
             }
         }
 
-        //System.out.println("lstUpdDate >> " + lstUpdDate);
-        //System.out.println("lstPath >> " + lstPath);
+        log.info("lstUpdDate : {}, lstPath : {}", lstUpdDate, lstPath);
 
         // 전체 건수 확인
         String strRes = fetchStanReginCd2(lstPath, 1, 10);
 
-        //System.out.println(strRes);
+        Gson gson = new Gson();
+        JsonObject jsonObject = gson.fromJson(strRes, JsonObject.class);
+        JsonArray allDataLst = new JsonArray(); // 출력할 데이터
 
-        JSONParser jsonParser = new JSONParser();
-        Object obj = jsonParser.parse(strRes);
-        JSONObject jsonObj = (JSONObject) obj;
-
-        List<Map> allDataLst = new ArrayList<>(); // 출력할 전체 데이터
-
-        //System.out.println("totalCount >> " + jsonObj.get("totalCount"));
-
-        if (!jsonObj.isEmpty()) {
+        if (!jsonObject.isEmpty()) {
             int page = 1; // 페이지 번호
             int perPage = 5000; // 페이지 당 요청 숫자
-            int totCnt = Integer.parseInt(jsonObj.get("totalCount").toString()); // 전체 결과 수
+            int totCnt = jsonObject.get("totalCount").getAsInt(); // 전체 결과 수
             int totPage = (int) Math.ceil((double) totCnt / perPage); // 총 페이지 수
 
-            //System.out.println("totCnt >> " + totCnt);
-            //System.out.println("totPage >> " + totPage);
+            log.info("totCnt: {}, totPage : {}", totCnt, totPage);
 
             while (page <= totPage) {
                 String resFetch = fetchStanReginCd2(lstPath, page++, perPage);
-
-                JSONParser parser = new JSONParser();
-                Object object = parser.parse(resFetch);
-                JSONObject jsonObject = (JSONObject) object;
-
-                List<Map> dataLst = JsonUtil.getListMapFromJSONArray((JSONArray) jsonObject.get("data"));
+                JsonObject jsonResFetch = gson.fromJson(resFetch, JsonObject.class);
+                JsonArray dataLst = jsonResFetch.get("data").getAsJsonArray();
 
                 allDataLst.addAll(dataLst);
             }
 
-            //System.out.println(allDataLst);
-
-            return ResponseEntity.ok(JsonUtil.getJSONArrayFromList(allDataLst));
+            return ResponseEntity.ok(allDataLst);
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -218,7 +179,7 @@ public class StanReginCdService {
      * @return Map
      */
     @SuppressWarnings("rawtypes")
-    private Map getStanReginCd2ModelInfo() throws ParseException {
+    private Map getStanReginCd2ModelInfo() {
         // Model 및 정보를 확인
         String strRes = stanReginCd2ModelInfoWebClient
                 .get()
@@ -226,13 +187,10 @@ public class StanReginCdService {
                 .bodyToMono(String.class)
                 .block();
 
-        //System.out.println(strRes);
+        Gson gson = new Gson();
+        JsonObject jsonObject = gson.fromJson(strRes, JsonObject.class);
 
-        JSONParser jsonParser = new JSONParser();
-        Object obj = jsonParser.parse(strRes);
-        JSONObject jsonObj = (JSONObject) obj;
-
-        return JsonUtil.getMapFromJSONObject((JSONObject) jsonObj.get("paths"));
+        return gson.fromJson(jsonObject.get("paths"), Map.class);
     }
 
     /**

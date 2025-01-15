@@ -1,15 +1,16 @@
 package com.haguri.publicdata.bus.service;
 
+import com.google.gson.JsonArray;
 import com.haguri.publicdata.util.BusUtil;
 import com.haguri.publicdata.util.MyInfoUtil;
-import org.json.simple.JSONArray;
-import org.json.simple.parser.ParseException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Service
 public class ExpBusService {
 
@@ -23,6 +24,7 @@ public class ExpBusService {
     }
 
     public Mono<ResponseEntity<String>> getExpBusCityCode() {
+        log.info("====================[ getExpBusCityCode ]====================");
         return expBusWebClient
                 .get()
                 .uri(uriBuilder ->
@@ -37,6 +39,7 @@ public class ExpBusService {
     }
 
     public Mono<ResponseEntity<String>> getExpBusGrad() {
+        log.info("====================[ getExpBusGrad ]====================");
         return expBusWebClient
                 .get()
                 .uri(uriBuilder ->
@@ -50,17 +53,22 @@ public class ExpBusService {
                 .toEntity(String.class);
     }
 
-    public ResponseEntity<JSONArray> getExpBusTrminl() throws ParseException {
-        return BusUtil.getBusTrminl(expBusWebClient, BusUtil.BusType.Exp, myInfoUtil.getPropertyValue("MyInfo.serviceKey"));
+    public ResponseEntity<JsonArray> getExpBusTrminl() {
+        log.info("====================[ getExpBusTrminl ]====================");
+        return BusUtil.getBusTrminl(
+                expBusWebClient,
+                BusUtil.BusType.Exp,
+                myInfoUtil.getPropertyValue("MyInfo.serviceKey"));
     }
 
-    public ResponseEntity<JSONArray> getExpBusInfo(
+    public ResponseEntity<JsonArray> getExpBusInfo(
             int pageNo,
             String depTerminalId,
             String arrTerminalId,
             String depPlandTime,
             String busGradeId
-    ) throws ParseException {
+    ) {
+        log.info("====================[ getExpBusInfo ]====================");
         return BusUtil.getBusInfo(
                 expBusWebClient,
                 BusUtil.BusType.Exp,
@@ -69,8 +77,7 @@ public class ExpBusService {
                 arrTerminalId,
                 depPlandTime,
                 busGradeId,
-                myInfoUtil.getPropertyValue("MyInfo.serviceKey")
-        );
+                myInfoUtil.getPropertyValue("MyInfo.serviceKey"));
     }
 
 }

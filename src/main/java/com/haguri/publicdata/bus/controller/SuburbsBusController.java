@@ -1,8 +1,7 @@
 package com.haguri.publicdata.bus.controller;
 
+import com.google.gson.JsonArray;
 import com.haguri.publicdata.bus.service.SuburbsBusService;
-import org.json.simple.JSONArray;
-import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,26 +35,25 @@ public class SuburbsBusController {
 
     // 시외버스 터미널
     @GetMapping("/trminl")
-    public ResponseEntity<JSONArray> searchSuburbsBusTrminl() throws ParseException {
+    public ResponseEntity<JsonArray> searchSuburbsBusTrminl() {
         return suburbsBusService.getSuburbsBusTrminl();
     }
 
     // 시외버스 출/도착지기반 버스 정보
     @GetMapping("/busInfo")
-    public ResponseEntity<JSONArray> searchExpBusInfo(
+    public ResponseEntity<JsonArray> searchExpBusInfo(
             @RequestParam("pageNo") int pageNo,
             @RequestParam(value = "depTerminalId", required = false, defaultValue = "") String depTerminalId,
             @RequestParam(value = "arrTerminalId", required = false, defaultValue = "") String arrTerminalId,
             @RequestParam("depPlandTime") String depPlandTime,
             @RequestParam(value = "busGradeId", required = false, defaultValue = "") String busGradeId
-    ) throws ParseException {
-        return suburbsBusService.getExpBusInfo(
+    ) {
+        return suburbsBusService.getSuburbsBusInfo(
                 pageNo,
                 depTerminalId,
                 arrTerminalId,
                 depPlandTime,
-                busGradeId
-        );
+                busGradeId);
     }
 
 }
