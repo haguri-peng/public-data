@@ -2,6 +2,7 @@ package com.haguri.publicdata.util;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -23,8 +24,8 @@ public class BusUtil {
     public static ResponseEntity<JsonArray> getBusTrminl(
             WebClient webClient,
             BusType busType,
-            String serviceKey) {
-
+            String serviceKey
+    ) {
         // 먼저, HEADER 정보를 보고 진행 여부를 확인
         Mono<String> resMono = fetchBusTrminl(webClient, busType, 1, 10, serviceKey);
         String strRes = resMono.block();
@@ -60,12 +61,23 @@ public class BusUtil {
 
                 JsonObject jsonFetch = gson.fromJson(resFetch, JsonObject.class);
                 JsonObject jsonResFetch = jsonFetch.get("response").getAsJsonObject();
-                JsonArray jsonArray = jsonResFetch
-                        .get("body").getAsJsonObject()
-                        .get("items").getAsJsonObject()
-                        .get("item").getAsJsonArray();
 
-                itemLst.addAll(jsonArray);
+                Optional.ofNullable(jsonResFetch.get("body"))
+                        .filter(JsonElement::isJsonObject)
+                        .map(JsonElement::getAsJsonObject)
+                        .map(jsonObj -> jsonObj.get("items"))
+                        .filter(JsonElement::isJsonObject)
+                        .map(JsonElement::getAsJsonObject)
+                        .map(jsonObj -> jsonObj.get("item"))
+                        .ifPresentOrElse(item -> {
+                            if (item.isJsonArray()) {
+                                itemLst.addAll(item.getAsJsonArray());
+                            } else if (item.isJsonObject()) {
+                                itemLst.add(item.getAsJsonObject());
+                            } else {
+                                log.error("Unexpected item type : {}", item);
+                            }
+                        }, () -> log.error("Item not found or invalid format."));
             }
             return ResponseEntity.ok(itemLst);
         } else {
@@ -89,7 +101,6 @@ public class BusUtil {
             int numOfRows,
             String serviceKey
     ) {
-
         String path;
         if (busType == BusType.Exp) {
             path = "/getExpBusTrminlList";
@@ -136,7 +147,6 @@ public class BusUtil {
             String busGradeId,
             String serviceKey
     ) {
-
         log.info("====================[ BusUtil.getBusInfo ]====================");
         log.info("pageNo : {}, busType : {}, busGradeId : {}", pageNo, busType, busGradeId);
         log.info("depPlandTime : {}, depTerminalId : {}, arrTerminalId : {}", depPlandTime, depTerminalId, arrTerminalId);
@@ -150,8 +160,7 @@ public class BusUtil {
                 arrTerminalId,
                 depPlandTime,
                 busGradeId,
-                serviceKey
-        );
+                serviceKey);
         String strRes = resMono.block();
 
         Gson gson = new Gson();
@@ -162,6 +171,7 @@ public class BusUtil {
 
         int totCnt; // 전체 결과 수
         int totPageNo; // 총 페이지 수
+        JsonArray itemLst = new JsonArray(); // 출력할 데이터
 
         // resultCode 가 00 이면 정상
         if ("00".equals(jsonHeader.get("resultCode").getAsString())) {
@@ -181,17 +191,33 @@ public class BusUtil {
                     arrTerminalId,
                     depPlandTime,
                     busGradeId,
-                    serviceKey
-            ).block();
+                    serviceKey)
+                    .block();
 
             JsonObject jsonFetch = gson.fromJson(resFetch, JsonObject.class);
             JsonObject jsonResFetch = jsonFetch.get("response").getAsJsonObject();
-            JsonArray jsonArray = jsonResFetch
-                    .get("body").getAsJsonObject()
-                    .get("items").getAsJsonObject()
-                    .get("item").getAsJsonArray();
 
-            return ResponseEntity.ok(jsonArray);
+            Optional.ofNullable(jsonResFetch.get("body"))
+                    .filter(JsonElement::isJsonObject)
+                    .map(JsonElement::getAsJsonObject)
+                    .map(jsonObj -> jsonObj.get("items"))
+                    .filter(JsonElement::isJsonObject)
+                    .map(JsonElement::getAsJsonObject)
+                    .map(jsonObj -> jsonObj.get("item"))
+                    .ifPresent(item -> {
+                        if (item.isJsonArray()) {
+                            itemLst.addAll(item.getAsJsonArray());
+                        } else if (item.isJsonObject()) {
+                            itemLst.add(item.getAsJsonObject());
+                        }
+                    });
+
+            if (itemLst.isEmpty()) {
+                log.error("itemLst is empty.");
+                return ResponseEntity.internalServerError().build();
+            } else {
+                return ResponseEntity.ok(itemLst);
+            }
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -219,7 +245,6 @@ public class BusUtil {
             String busGradeId,
             String serviceKey
     ) {
-
         String path;
         if (busType == BusType.Exp) {
             path = "/getStrtpntAlocFndExpbusInfo";
